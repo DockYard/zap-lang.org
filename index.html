@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1200" />
+<title>Zap — The Language</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Caveat:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --ink-soft: #2a2a2a;
+    --ink-faint: #6b6b6b;
+    --paper: #f5f1e8;
+    --border-weight: 2.5px;
+    --panel-bg: rgba(255, 253, 246, 0.55);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--paper) url('assets/background.png');
+    color: var(--ink);
+    font-family: 'Caveat', cursive;
+    font-size: 20px;
+    line-height: 1.35;
+  }
+
+  body {
+    min-height: 100vh;
+  }
+
+  .page {
+    width: 1100px;
+    margin: 0 auto;
+    padding: 28px 0 60px;
+  }
+
+  /* ---------- Type ---------- */
+  .display {
+    font-family: 'Bangers', 'Impact', sans-serif;
+    letter-spacing: 0.04em;
+    font-weight: 400;
+  }
+  .body-hand {
+    font-family: 'Caveat', cursive;
+  }
+  .mono {
+    font-family: 'JetBrains Mono', 'Cousine', monospace;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  /* ---------- Hand-drawn box ----------
+     Each panel layers 2-3 displacement-filtered outlines via ::before / ::after
+     pseudo-elements. Each pseudo gets its own SVG filter (rough-1/2/3) so the
+     wobble pattern differs slightly between layers, mimicking the multiple
+     pencil passes a sketcher makes when retracing a panel border. The base
+     element has no border itself — it's just a host for the rough overlays. */
+  .panel {
+    position: relative;
+    border: none;
+    background: var(--paper) url('assets/background.png');
+    border-radius: 0;
+  }
+  .panel::before,
+  .panel::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+    border: var(--border-weight) solid var(--ink);
+    border-radius: 1px;
+  }
+  /* primary outline — slight inset so corners read as drawn-not-clipped */
+  .panel::before {
+    inset: -1px;
+    filter: url(#rough-1);
+    -webkit-filter: url(#rough-1);
+    transform: rotate(-0.15deg);
+  }
+  /* secondary retraced outline — offset, lighter, slightly different wobble */
+  .panel::after {
+    inset: -4px -3px -2px -5px;
+    border-width: calc(var(--border-weight) * 0.55);
+    opacity: 0.55;
+    filter: url(#rough-2);
+    -webkit-filter: url(#rough-2);
+    transform: rotate(0.25deg);
+  }
+  .panel.no-double::after { display: none; }
+
+  .hover-peel {
+    /* hover effects intentionally disabled */
+  }
+
+  /* ---------- Topbar ---------- */
+  .topbar {
+    display: grid;
+    grid-template-columns: 220px 1fr auto;
+    align-items: center;
+    gap: 24px;
+    padding: 4px 8px 18px;
+  }
+  .topbar .logo img {
+    width: 200px;
+    height: auto;
+    display: block;
+  }
+  .topbar nav {
+    display: flex;
+    justify-content: center;
+    gap: 22px;
+    flex-wrap: wrap;
+  }
+  .topbar nav a {
+    font-family: 'Bangers', sans-serif;
+    letter-spacing: 0.06em;
+    color: var(--ink);
+    text-decoration: none;
+    font-size: 16px;
+    padding: 4px 2px;
+    border-bottom: 2px solid transparent;
+    transition: border-color 160ms ease, transform 160ms ease;
+    white-space: nowrap;
+  }
+  .topbar nav a:hover {
+    border-bottom-color: var(--ink);
+    transform: translateY(-1px);
+  }
+  .topbar .social {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+  }
+  .topbar .social a {
+    color: var(--ink);
+    display: inline-flex;
+    transition: transform 160ms ease;
+  }
+  .topbar .social a:hover { transform: rotate(-6deg) scale(1.06); }
+  .topbar .social svg { width: 26px; height: 26px; display: block; }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    margin-bottom: 32px;
+    position: relative;
+  }
+  .hero-left {
+    grid-column: 1;
+    grid-row: 1;
+    position: relative;
+    z-index: 2;
+  }
+  .hero-right {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: end;
+    align-self: start;
+    width: 760px;
+    max-width: 70%;
+    transform: scale(1.05);
+    transform-origin: top right;
+    position: relative;
+    z-index: 1;
+    pointer-events: none;
+    -webkit-mask-image: radial-gradient(ellipse 32% 32% at 18% 88%, rgba(0,0,0,0) 0%, rgba(0,0,0,0.3) 45%, rgba(0,0,0,0.75) 65%, rgba(0,0,0,1) 85%);
+            mask-image: radial-gradient(ellipse 32% 32% at 18% 88%, rgba(0,0,0,0) 0%, rgba(0,0,0,0.3) 45%, rgba(0,0,0,0.75) 65%, rgba(0,0,0,1) 85%);
+  }
+  .hero-left .hero-message {
+    width: 430px;
+    max-width: 100%;
+    display: block;
+    margin-bottom: 18px;
+    position: relative;
+    z-index: 3;
+  }
+  .hero-left .lede {
+    font-family: 'Caveat', cursive;
+    font-size: 22px;
+    line-height: 1.25;
+    color: var(--ink);
+    margin: 0 0 22px;
+    max-width: 360px;
+  }
+  .hero-left .features {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px 14px;
+    max-width: 460px;
+    align-items: start;
+  }
+  .hero-feature {
+    display: block;
+    font-size: 16px;
+    line-height: 1.18;
+  }
+  .hero-feature > * { display: block; }
+  .hero-feature .glyph {
+    width: 24px;
+    height: 24px;
+    display: block;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+  .hero-feature .glyph svg { width: 100%; height: 100%; display: block; }
+  .hero-feature strong {
+    display: block;
+    font-weight: 700;
+    font-size: 17px;
+    margin-bottom: 1px;
+  }
+  .hero-feature .sub {
+    display: block;
+    color: var(--ink-soft);
+    font-size: 16px;
+    line-height: 1.18;
+  }
+
+  .hero-right {
+    position: relative;
+  }
+  .hero-right .hero-img {
+    width: 100%;
+    display: block;
+  }
+  .hero-right .speech {
+    position: absolute;
+    top: 56px;
+    left: auto;
+    right: 270px;
+    width: 270px;
+    aspect-ratio: 444 / 200;
+    background-image: url('assets/bubble.png');
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 14px 26px 36px;
+    z-index: 2;
+  }
+  .hero-right .speech p {
+    margin: 0;
+    font-family: 'Bangers', sans-serif;
+    font-size: 17px;
+    letter-spacing: 0.04em;
+    line-height: 1.05;
+    transform: translateY(-6px);
+    white-space: nowrap;
+    color: #6b6b6b;
+  }
+
+  /* ---------- Playground ---------- */
+  .playground {
+    margin-bottom: 32px;
+    padding: 0;
+    overflow: hidden;
+  }
+  .playground-bar {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    padding: 8px 14px;
+    position: relative;
+    font-family: 'Caveat', cursive;
+    font-size: 18px;
+  }
+  .playground-bar::after {
+    content: "";
+    position: absolute;
+    left: 6px; right: 6px; bottom: 0;
+    height: var(--border-weight);
+    background: var(--ink);
+    filter: url(#rough-3);
+    -webkit-filter: url(#rough-3);
+  }
+  .playground-bar .reset-btn {
+    font-family: 'Bangers', sans-serif;
+    letter-spacing: 0.06em;
+    background: transparent;
+    border: 2px solid var(--ink);
+    color: var(--ink);
+    padding: 4px 14px 2px;
+    cursor: pointer;
+    border-radius: 2px;
+    font-size: 14px;
+    transition: transform 160ms ease, background 160ms ease;
+  }
+  .playground-bar .reset-btn:hover {
+    background: rgba(26,26,26,0.06);
+    transform: rotate(-1deg);
+  }
+  .playground-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .playground-pane {
+    padding: 0;
+    min-height: 270px;
+    position: relative;
+  }
+  .playground-pane.editor {
+    position: relative;
+  }
+  .playground-pane.editor::after {
+    content: "";
+    position: absolute;
+    top: 6px; bottom: 6px; right: 0;
+    width: var(--border-weight);
+    background: var(--ink);
+    filter: url(#rough-1);
+    -webkit-filter: url(#rough-1);
+  }
+  .pane-head {
+    padding: 6px 14px;
+    position: relative;
+    font-family: 'Caveat', cursive;
+    font-size: 18px;
+    background: var(--paper) url('assets/background.png');
+  }
+  .pane-head::after {
+    content: "";
+    position: absolute;
+    left: 6px; right: 6px; bottom: 0;
+    height: 1.4px;
+    background: var(--ink);
+    filter: url(#rough-thin);
+    -webkit-filter: url(#rough-thin);
+  }
+  .code-area {
+    display: grid;
+    grid-template-columns: 36px 1fr;
+    padding: 8px 0 14px;
+  }
+  .gutter {
+    color: var(--ink-faint);
+    text-align: right;
+    padding-right: 10px;
+    user-select: none;
+    border-right: 1px solid rgba(26,26,26,0.18);
+  }
+  .gutter span { display: block; }
+  .code {
+    padding-left: 12px;
+    white-space: pre;
+    color: var(--ink);
+  }
+  .code .kw { color: #6b3a8c; }
+  .code .fn { color: #1f5fa8; }
+  .code .str { color: #7a5a1a; }
+  .code .num { color: #1a6a4a; }
+  .code .cmt { color: #6b6b6b; font-style: italic; }
+  .code .punct { color: #2a2a2a; }
+
+  .console-area {
+    padding: 12px 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+  .console-area .prompt { color: var(--ink); }
+  .console-area .out { color: #2a2a2a; }
+  .console-area .check { color: #1a6a4a; font-weight: 700; }
+  .console-area .cursor {
+    display: inline-block;
+    width: 8px;
+    height: 14px;
+    background: var(--ink);
+    vertical-align: -2px;
+    animation: blink 1s steps(1) infinite;
+    margin-left: 2px;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .playground-foot {
+    padding: 6px 14px;
+    position: relative;
+    font-family: 'Caveat', cursive;
+    font-size: 16px;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .playground-foot::before {
+    content: "";
+    position: absolute;
+    left: 6px; right: 6px; top: 0;
+    height: 1.4px;
+    background: var(--ink);
+    filter: url(#rough-thin);
+    -webkit-filter: url(#rough-thin);
+  }
+  .playground-foot .check { color: #1a6a4a; font-weight: 700; }
+
+  /* ---------- Why Zap section ---------- */
+  .why-section {
+    margin-bottom: 32px;
+    padding: 22px 26px 26px;
+    background: transparent;
+  }
+  .why-title {
+    font-family: 'Bangers', sans-serif;
+    font-size: 30px;
+    letter-spacing: 0.06em;
+    margin: 0 0 18px;
+  }
+  .why-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 22px;
+  }
+  .why-card {
+    text-align: center;
+    position: relative;
+    display: grid;
+    grid-template-rows: 130px auto auto;
+    align-content: start;
+    gap: 6px;
+  }
+  .why-card .illo {
+    height: 130px;
+    display: flex;
+    align-items: end;
+    justify-content: center;
+    margin-bottom: 4px;
+    position: relative;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center bottom;
+  }
+
+  /* Background images for Why Zap section */
+  .illo-fast { background-image: url('assets/card-fast.png'); }
+  .illo-ergonomic { background-image: url('assets/card-ergonomic.png'); }
+  .illo-concurrency { background-image: url('assets/card-concurrency.png'); }
+  .illo-reliable { background-image: url('assets/card-reliable.png'); }
+  .illo-realprojects { background-image: url('assets/card-realprojects.png'); }
+
+  /* Background images for info cards section */
+  .illo-rocket { background-image: url('assets/card-rocket.png'); }
+  .illo-ecosystem { background-image: url('assets/card-ecosystem.png'); }
+  .illo-roadmap { background-image: url('assets/card-roadmap.png'); }
+  .illo-community { background-image: url('assets/card-community.png'); }
+  .why-card h3 {
+    font-family: 'Bangers', sans-serif;
+    font-size: 16px;
+    letter-spacing: 0.04em;
+    margin: 6px 0 6px;
+    line-height: 1.1;
+    min-height: 2.4em;
+  }
+  .why-card p {
+    font-size: 16px;
+    line-height: 1.18;
+    margin: 0;
+    color: var(--ink-soft);
+  }
+
+  .coming-soon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-8deg);
+    background: var(--paper) url('assets/background.png');
+    font-family: 'Bangers', sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    padding: 4px 12px 2px;
+    box-shadow: 2px 2px 0 rgba(26,26,26,0.15);
+    z-index: 3;
+    white-space: nowrap;
+  }
+  .coming-soon::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 2px solid var(--ink);
+    filter: url(#rough-2);
+    -webkit-filter: url(#rough-2);
+    pointer-events: none;
+  }
+
+  /* ---------- Secondary cards row (Quick / Eco / Roadmap / Community) ---------- */
+  .row-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .info-card {
+    padding: 14px;
+		aspect-ratio: 1.15;
+    position: relative;
+    background: transparent;
+    overflow: hidden;
+  }
+  .info-card h3 {
+    font-family: 'Bangers', sans-serif;
+    font-size: 22px;
+    letter-spacing: 0.05em;
+    margin: 0 0 4px;
+    line-height: 1.0;
+  }
+  .info-card .blurb {
+    font-size: 16px;
+    line-height: 1.2;
+    margin: 0 0 8px;
+    color: var(--ink-soft);
+  }
+  .info-card {
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
+  }
+	.card-rocket {
+		background-size: 95%;
+    background-position: 9px 10px;
+		background-image: url('assets/card-rocket.png');
+  }
+	.card-rocket .blurb {
+		width: 70%;
+	}
+  .card-ecosystem {
+		background-size: 70%;
+    background-position: 90px 16px;
+    background-image: url('assets/card-ecosystem.png');
+  }
+	.card-ecosystem .blurb {
+		max-width: 53%;
+	}
+	.card-ecosystem .coming-soon {
+		font-size: 29px;
+    transform: translate(-50%, 12%) rotate(-18deg);
+	}
+  .card-roadmap {
+		background-size: 100.3%;
+    background-position: 0px 37px;
+    background-image: url('assets/card-roadmap.png');
+  }
+  .card-community {
+		background-size: 96%;
+    background-position: center 69px;
+    background-image: url('assets/card-community.png');
+  }
+  .info-card .install-block {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+		font-weight: 600;
+    line-height: 1.5;
+    background: var(--paper) url('assets/background.png');
+    padding: 6px 8px;
+    margin: 5px 0 0;
+    white-space: pre;
+    overflow: visible;
+    position: relative;
+    width: auto;
+    max-width: 96%;
+    clear: none;
+  }
+  .info-card .install-block::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 1.5px solid var(--ink);
+    filter: url(#rough-3);
+    -webkit-filter: url(#rough-3);
+    pointer-events: none;
+  }
+  .info-card .btn-hand {
+    position: absolute;
+    left: 50%;
+    bottom: 11px;
+    transform: translateX(-50%);
+  }
+  .btn-hand {
+    font-family: 'Bangers', sans-serif;
+    letter-spacing: 0.06em;
+    background: transparent;
+    color: var(--ink);
+    padding: 6px 12px 4px;
+    cursor: pointer;
+    font-size: 16px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
+    align-self: start;
+    white-space: nowrap;
+    line-height: 1.1;
+    position: relative;
+    border: none;
+		background: var(--paper) url('assets/background.png');
+  }
+  .btn-hand::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 2px solid var(--ink);
+    filter: url(#rough-1);
+    -webkit-filter: url(#rough-1);
+    pointer-events: none;
+  }
+  .reset-btn {
+    font-family: 'Bangers', sans-serif;
+    letter-spacing: 0.06em;
+    background: transparent;
+    color: var(--ink);
+    padding: 4px 14px 2px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: transform 160ms ease, background 160ms ease;
+    position: relative;
+    border: none;
+  }
+  .reset-btn::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 2px solid var(--ink);
+    filter: url(#rough-2);
+    -webkit-filter: url(#rough-2);
+    pointer-events: none;
+  }
+  .reset-btn:hover {
+    background: rgba(26,26,26,0.06);
+    transform: rotate(-1deg);
+  }
+  .btn-hand:hover {
+    transform: translateX(-50%) translateY(-1px) rotate(-0.6deg);
+    box-shadow: 3px 3px 0 rgba(26,26,26,0.18);
+  }
+
+  .info-card.coming .illo .coming-soon { top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-8deg); }
+
+  /* ---------- Join the adventure band ---------- */
+  .join-band {
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    gap: 18px;
+    align-items: stretch;
+    padding: 18px 22px;
+    margin-bottom: 30px;
+    overflow: hidden;
+    background: transparent;
+  }
+  .join-left h2 {
+    font-family: 'Bangers', sans-serif;
+    font-size: 30px;
+    letter-spacing: 0.06em;
+    margin: 0 0 4px;
+  }
+  .join-left p {
+    font-size: 19px;
+    margin: 0 0 14px;
+    color: var(--ink-soft);
+  }
+  .join-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+  .join-right {
+    display: flex;
+    align-items: end;
+    justify-content: end;
+    overflow: visible;
+    margin: -18px -22px -18px 0;
+  }
+  .join-right img {
+    height: 165px;
+    display: block;
+    object-fit: cover;
+    object-position: right bottom;
+  }
+
+  /* ---------- Footer ---------- */
+  footer.foot {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr auto;
+    gap: 26px;
+    padding: 22px 6px 8px;
+    margin-top: 8px;
+    position: relative;
+  }
+  footer.foot::before {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; top: 0;
+    height: 2px;
+    background: var(--ink);
+    filter: url(#rough-1);
+    -webkit-filter: url(#rough-1);
+  }
+  footer.foot .brand img { width: 110px; display: block; margin-bottom: 8px; }
+  footer.foot .brand p { font-size: 16px; margin: 0; color: var(--ink-soft); line-height: 1.2; max-width: 200px; }
+  footer.foot h4 {
+    font-family: 'Bangers', sans-serif;
+    letter-spacing: 0.06em;
+    font-size: 14px;
+    margin: 0 0 8px;
+  }
+  footer.foot ul { list-style: none; padding: 0; margin: 0; }
+  footer.foot li { font-size: 16px; line-height: 1.5; }
+  footer.foot a { color: var(--ink); text-decoration: none; }
+  footer.foot a:hover { text-decoration: underline wavy; text-underline-offset: 3px; }
+  footer.foot .social-foot {
+    display: flex;
+    flex-direction: column;
+    align-items: end;
+    gap: 6px;
+    font-size: 14px;
+    text-align: right;
+    color: var(--ink-soft);
+  }
+  footer.foot .social-foot .icons { display: flex; gap: 10px; margin-bottom: 6px; }
+  footer.foot .social-foot svg { width: 22px; height: 22px; }
+
+  /* ---------- Misc utility ---------- */
+  .row { display: flex; }
+  .gap-8 { gap: 8px; }
+  .strip-divider {
+    height: 0;
+    border-top: 2px dashed rgba(26,26,26,0.4);
+    margin: 0 0 12px;
+  }
+</style>
+</head>
+<body>
+
+<!-- shared SVG defs (lightning bolt / peace / shield / arrow icons) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- Hand-drawn pencil edge filters: feTurbulence drives feDisplacementMap to
+         jitter each pixel of the rendered border by a few px in random directions,
+         turning a clean CSS border into a wobbly pencil-like line. Three seeds
+         applied to different elements keeps neighboring panels from looking like
+         carbon copies of each other. -->
+    <filter id="rough-1" x="-2%" y="-2%" width="104%" height="104%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="2" seed="3"/>
+      <feDisplacementMap in="SourceGraphic" scale="3.2"/>
+    </filter>
+    <filter id="rough-2" x="-2%" y="-2%" width="104%" height="104%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="3.6"/>
+    </filter>
+    <filter id="rough-3" x="-2%" y="-2%" width="104%" height="104%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.026" numOctaves="2" seed="12"/>
+      <feDisplacementMap in="SourceGraphic" scale="2.6"/>
+    </filter>
+    <filter id="rough-thin" x="-2%" y="-2%" width="104%" height="104%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="2" seed="5"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.8"/>
+    </filter>
+  </defs>
+</svg>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-bolt" viewBox="0 0 24 32">
+      <path d="M14 2 L3 18 L10 18 L8 30 L21 12 L13 12 L14 2 Z"
+            fill="currentColor" stroke="currentColor" stroke-width="1.2"
+            stroke-linejoin="round" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-peace" viewBox="0 0 32 32">
+      <circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="2"/>
+      <path d="M16 3 L16 29 M16 16 L6 26 M16 16 L26 26" fill="none" stroke="currentColor" stroke-width="2"/>
+    </symbol>
+    <symbol id="i-shield" viewBox="0 0 32 32">
+      <path d="M16 3 C 11 5, 7 6, 4 6 C 4 18, 9 26, 16 30 C 23 26, 28 18, 28 6 C 25 6, 21 5, 16 3 Z"
+            fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M11 16 L15 20 L22 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 12">
+      <path d="M2 6 L20 6 M14 1 L20 6 L14 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="i-github" viewBox="0 0 32 32">
+      <path d="M16 3 C9 3 3 9 3 16 c0 6 4 11 9 12.5 c0.7 0.1 1-0.3 1-0.7 v-2.5 c-3.5 0.8-4.3-1.7-4.3-1.7 c-0.6-1.5-1.4-1.9-1.4-1.9 c-1.2-0.8 0.1-0.8 0.1-0.8 c1.3 0.1 2 1.4 2 1.4 c1.2 2 3 1.4 3.7 1.1 c0.1-0.9 0.5-1.4 0.8-1.7 c-2.8-0.3-5.7-1.4-5.7-6.2 c0-1.4 0.5-2.5 1.3-3.4 c-0.1-0.3-0.6-1.6 0.1-3.4 c0 0 1.1-0.4 3.6 1.3 c1-0.3 2.1-0.4 3.2-0.4 s2.2 0.1 3.2 0.4 c2.5-1.7 3.6-1.3 3.6-1.3 c0.7 1.8 0.3 3.1 0.1 3.4 c0.8 0.9 1.3 2 1.3 3.4 c0 4.8-2.9 5.9-5.7 6.2 c0.4 0.4 0.8 1.1 0.8 2.3 v3.4 c0 0.4 0.3 0.8 1 0.7 C25 27 29 22 29 16 C29 9 23 3 16 3 Z"
+            fill="currentColor"/>
+    </symbol>
+    <symbol id="i-discord" viewBox="0 0 32 32">
+      <path d="M25 7 c-1.7-0.8-3.6-1.4-5.5-1.7 c-0.2 0.4-0.5 1-0.7 1.5 c-2-0.3-4-0.3-6 0 c-0.2-0.5-0.5-1.1-0.7-1.5 C10.2 5.6 8.3 6.2 6.6 7 C3.2 12 2.3 16.9 2.7 21.7 c2.3 1.7 4.5 2.7 6.7 3.4 c0.5-0.7 1-1.5 1.4-2.3 c-0.8-0.3-1.5-0.7-2.2-1.1 c0.2-0.1 0.4-0.3 0.5-0.4 c4.2 2 8.7 2 12.9 0 c0.2 0.1 0.4 0.3 0.5 0.4 c-0.7 0.4-1.4 0.8-2.2 1.1 c0.4 0.8 0.9 1.6 1.4 2.3 c2.2-0.7 4.5-1.7 6.7-3.4 C29.7 16.1 28.3 11.3 25 7 Z M11.8 18.7 c-1.3 0-2.4-1.2-2.4-2.7 c0-1.5 1-2.7 2.4-2.7 c1.4 0 2.4 1.2 2.4 2.7 C14.2 17.5 13.2 18.7 11.8 18.7 Z M20.2 18.7 c-1.3 0-2.4-1.2-2.4-2.7 c0-1.5 1-2.7 2.4-2.7 c1.4 0 2.4 1.2 2.4 2.7 C22.6 17.5 21.6 18.7 20.2 18.7 Z"
+            fill="currentColor"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="page" id="page">
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="logo">
+      <img src="assets/main-logo.png" alt="Zap — The Language (Rough Draft)" />
+    </div>
+    <nav>
+      <a href="#why">Why Zap</a>
+      <a href="#features">Features</a>
+      <a href="#playground">Playground</a>
+      <a href="#quickstart">Quick Start</a>
+      <a href="#ecosystem">Ecosystem</a>
+      <a href="#roadmap">Roadmap</a>
+      <a href="#community">Community</a>
+    </nav>
+    <div class="social">
+      <a href="#" aria-label="GitHub"><svg><use href="#i-github"/></svg></a>
+      <a href="#" aria-label="Discord"><svg><use href="#i-discord"/></svg></a>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero" id="hero">
+    <div class="hero-left">
+      <img class="hero-message" src="assets/hero-message.png" alt="If Zig and Elixir had a baby it would be Zap" />
+      <p class="lede">Zap is a fast, ergonomic, and reliable<br/>programming language for building<br/>scalable apps.</p>
+      <div class="features">
+        <div class="hero-feature">
+          <span class="glyph"><svg><use href="#i-bolt"/></svg></span>
+          <strong>Blazing fast.</strong>
+          <span class="sub">From new eff..less.</span>
+        </div>
+        <div class="hero-feature">
+          <span class="glyph"><svg><use href="#i-peace"/></svg></span>
+          <strong>Ergonomic by default.</strong>
+          <span class="sub">Your workflow. Your way.</span>
+        </div>
+        <div class="hero-feature">
+          <span class="glyph"><svg><use href="#i-shield"/></svg></span>
+          <strong>Built for concurrency.</strong>
+          <span class="sub">Scale without limits.</span>
+        </div>
+      </div>
+    </div>
+    <div class="hero-right">
+      <div class="speech">
+        <p>A MODERN LANGUAGE FOR<br/>FAST, CONCURRENT,<br/>REAL-WORLD SOFTWARE<br/>THAT RUNS EVERYWHERE.</p>
+      </div>
+      <img class="hero-img" src="assets/hero.png" alt="Zap mascots on a rooftop" />
+    </div>
+  </section>
+
+  <!-- Playground -->
+  <section class="playground panel hover-peel" id="playground">
+    <div class="playground-bar">
+      <span>Compiled to WebAssembly. &nbsp; No install. &nbsp; Just Zap.</span>
+      <button class="reset-btn" id="resetBtn">Reset</button>
+    </div>
+    <div class="playground-grid">
+      <div class="playground-pane editor">
+        <div class="pane-head">hello.zap</div>
+        <div class="code-area">
+          <div class="gutter mono" id="gutter"></div>
+<pre class="code mono" id="codeBlock"><span class="cmt">// Welcome to Zap!</span>
+
+<span class="kw">pub fn</span> <span class="fn">main</span>() {
+    <span class="kw">const</span> port = <span class="num">4000</span>;
+    <span class="kw">var</span> server = Server.init(.{ port });
+
+    server.get(<span class="str">"/"</span>, <span class="kw">fn</span> (req, res) {
+        res.html(&lt;&gt;
+            &lt;h1&gt;Hello from Zap!&lt;/h1&gt;
+            &lt;p&gt;Fast. Ergonomic. Reliable.&lt;/p&gt;
+        &lt;/&gt;);
+    });
+
+    server.listen();
+}
+</pre>
+        </div>
+      </div>
+      <div class="playground-pane">
+        <div class="pane-head">Output ▾</div>
+        <div class="console-area">
+<span class="prompt">$ zap run hello.zap</span>
+<span class="out">Starting server on http://127.0.0.1:4000</span> <span class="check">✓</span>
+<span class="cursor"></span>
+        </div>
+      </div>
+    </div>
+    <div class="playground-foot">
+      <span class="check">✓</span> Compiled to WebAssembly
+    </div>
+  </section>
+
+  <!-- Why Zap -->
+  <section class="why-section panel hover-peel" id="why">
+    <h2 class="why-title">WHY ZAP?</h2>
+    <div class="why-grid">
+      <div class="why-card">
+        <div class="illo illo-fast"></div>
+        <h3>FAST BY DESIGN</h3>
+        <p>From the ground up, Zap is built for speed and efficiency.</p>
+      </div>
+      <div class="why-card">
+        <div class="illo illo-ergonomic"></div>
+        <h3>ERGONOMIC &amp; EXPRESSIVE</h3>
+        <p>Clean, readable syntax that gets out of your way, so you can ship.</p>
+      </div>
+      <div class="why-card">
+        <div class="illo illo-concurrency">
+          <span class="coming-soon">COMING SOON!</span>
+        </div>
+        <h3>CONCURRENCY FIRST</h3>
+        <p>Actors, async I/O, and message passing are core to the language.</p>
+      </div>
+      <div class="why-card">
+        <div class="illo illo-reliable"></div>
+        <h3>RELIABLE BY DEFAULT</h3>
+        <p>Strong typing, immutable by choice, and fearless error handling.</p>
+      </div>
+      <div class="why-card">
+        <div class="illo illo-realprojects"></div>
+        <h3>BUILT FOR REAL PROJECTS</h3>
+        <p>From CLIs to web services, Zap scales with you, from day one.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick / Eco / Roadmap / Community row -->
+  <section class="row-cards">
+    <div class="info-card panel hover-peel card-rocket" id="quickstart">
+      <h3>QUICK START</h3>
+      <p class="blurb">Get up and running in seconds.</p>
+      <div class="install-block">$ install
+curl -sS https://ziplang.dev | sh
+$ zap new myapp
+$ run it
+$ zap run</div>
+      <a href="#" class="btn-hand">GET STARTED <svg width="20" height="10" style="overflow:visible"><use href="#i-arrow"/></svg></a>
+    </div>
+
+    <div class="info-card panel hover-peel coming card-ecosystem" id="ecosystem">
+      <span class="coming-soon">COMING SOON!</span>
+      <h3>ECOSYSTEM</h3>
+      <p class="blurb">Packages, tools, and libraries to build amazing things.</p>
+      <a href="#" class="btn-hand">EXPLORE ECOSYSTEM <svg width="20" height="10" style="overflow:visible"><use href="#i-arrow"/></svg></a>
+    </div>
+
+    <div class="info-card panel hover-peel card-roadmap" id="roadmap">
+      <h3>ROADMAP</h3>
+      <p class="blurb">See what's coming next for Zap.</p>
+      <a href="#" class="btn-hand">VIEW ROADMAP <svg width="20" height="10" style="overflow:visible"><use href="#i-arrow"/></svg></a>
+    </div>
+
+    <div class="info-card panel hover-peel card-community" id="community">
+      <h3>COMMUNITY</h3>
+      <p class="blurb">Join builders, ask questions, share ideas, and help shape the future.</p>
+      <a href="#" class="btn-hand">JOIN THE COMMUNITY <svg width="20" height="10" style="overflow:visible"><use href="#i-arrow"/></svg></a>
+    </div>
+  </section>
+
+  <!-- Join the adventure -->
+  <section class="join-band panel hover-peel">
+    <div class="join-left">
+      <h2>JOIN THE ADVENTURE!</h2>
+      <p>Zap is open source and community driven.<br/>Contributions welcome!</p>
+      <div class="join-buttons">
+        <a href="#" class="btn-hand">STAR ON GITHUB <svg width="20" height="10" style="overflow:visible"><use href="#i-arrow"/></svg></a>
+        <a href="#" class="btn-hand">VIEW ON GITHUB <svg width="20" height="10" style="overflow:visible"><use href="#i-arrow"/></svg></a>
+      </div>
+    </div>
+    <div class="join-right">
+      <img src="assets/card-adventure.png" alt="Zap mascots and skyline" />
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="foot">
+    <div class="brand">
+      <img src="assets/zap-footer.png" alt="Zap" />
+      <p>A language for modern, concurrent, real-world software.</p>
+    </div>
+    <div>
+      <h4>LANGUAGE</h4>
+      <ul>
+        <li><a href="#why">Why Zap</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#playground">Playground</a></li>
+        <li><a href="#quickstart">Quick Start</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>RESOURCES</h4>
+      <ul>
+        <li><a href="#">Documentation</a></li>
+        <li><a href="#ecosystem">Ecosystem</a></li>
+        <li><a href="#">GitHub</a></li>
+        <li><a href="#">Blog</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>COMMUNITY</h4>
+      <ul>
+        <li><a href="#">Discord</a></li>
+        <li><a href="#">Forum</a></li>
+        <li><a href="#">Twitter</a></li>
+        <li><a href="#">YouTube</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>LEGAL</h4>
+      <ul>
+        <li><a href="#">License (MIT)</a></li>
+        <li><a href="#">Code of Conduct</a></li>
+        <li><a href="#">Security</a></li>
+        <li><a href="#">Privacy Policy</a></li>
+      </ul>
+    </div>
+    <div class="social-foot">
+      <div class="icons">
+        <a href="#" aria-label="GitHub"><svg><use href="#i-github"/></svg></a>
+        <a href="#" aria-label="Discord"><svg><use href="#i-discord"/></svg></a>
+      </div>
+      <div>Made with ⚡ by the Zap Team</div>
+      <div>© 2025 Zap</div>
+    </div>
+  </footer>
+
+</div>
+
+<!-- Generate gutter line numbers + smooth-scroll nav -->
+<script>
+  (function () {
+    const code = document.getElementById('codeBlock');
+    const gutter = document.getElementById('gutter');
+    if (code && gutter) {
+      const lines = code.textContent.split('\n');
+      // Trim trailing blank line if present
+      if (lines[lines.length - 1] === '') lines.pop();
+      const n = Math.max(lines.length, 15);
+      let html = '';
+      for (let i = 1; i <= n; i++) html += '<span>' + i + '</span>';
+      gutter.innerHTML = html;
+    }
+    document.getElementById('resetBtn')?.addEventListener('click', () => {
+      // playful pulse only, fake reset
+      const p = document.getElementById('playground');
+      p.style.transition = 'transform 220ms ease';
+      p.style.transform = 'rotate(-0.4deg) translateY(-2px)';
+      setTimeout(() => { p.style.transform = ''; }, 220);
+    });
+    // smooth scroll
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', e => {
+        const id = a.getAttribute('href').slice(1);
+        const el = document.getElementById(id);
+        if (el) {
+          e.preventDefault();
+          window.scrollTo({ top: el.offsetTop - 16, behavior: 'smooth' });
+        }
+      });
+    });
+  })();
+</script>
+
+<!-- Tweaks -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="zap-tweaks.jsx"></script>
+
+</body>
+</html>
