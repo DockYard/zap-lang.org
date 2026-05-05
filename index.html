@@ -264,6 +264,102 @@
     padding: 0;
     overflow: hidden;
   }
+  .playground-collapse {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 360ms ease;
+  }
+  .playground-collapse.open {
+    grid-template-rows: 1fr;
+  }
+  .playground-collapse-inner {
+    overflow: hidden;
+    min-height: 0;
+    position: relative;
+  }
+  .loading-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    background: var(--paper) url('assets/background.png');
+    z-index: 5;
+    transition: opacity 420ms ease;
+  }
+  .loading-overlay.fade-out {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .loading-mark {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Bangers', sans-serif;
+    font-size: 44px;
+    letter-spacing: 0.08em;
+    color: var(--ink);
+  }
+  .loading-mark svg {
+    width: 36px;
+    height: 48px;
+    color: var(--ink);
+    animation: zap-pulse 1.1s ease-in-out infinite;
+  }
+  @keyframes zap-pulse {
+    0%, 100% { transform: scale(1) rotate(-4deg); opacity: 1; }
+    50% { transform: scale(1.18) rotate(4deg); opacity: 0.55; }
+  }
+  .loading-caption {
+    font-family: 'Caveat', cursive;
+    font-size: 19px;
+    color: var(--ink-soft);
+    min-height: 1.4em;
+    transition: opacity 220ms ease;
+  }
+  .loading-caption.swap { opacity: 0; }
+  .loading-bar {
+    width: 280px;
+    height: 8px;
+    background: rgba(26,26,26,0.1);
+    overflow: hidden;
+    position: relative;
+    border: 1.5px solid var(--ink);
+  }
+  .loading-bar::before {
+    content: "";
+    position: absolute;
+    top: 0; bottom: 0;
+    left: -45%;
+    width: 45%;
+    background: var(--ink);
+    animation: load-slide 1.3s ease-in-out infinite;
+  }
+  @keyframes load-slide {
+    0% { left: -45%; }
+    100% { left: 100%; }
+  }
+  .monaco-host {
+    height: 376px;
+    width: 100%;
+  }
+  .vim-status {
+    height: 24px;
+    line-height: 24px;
+    padding: 0 12px;
+    font-size: 12px;
+    color: var(--ink);
+    border-top: 1px solid rgba(26,26,26,0.18);
+    background: rgba(255,253,246,0.4);
+  }
+  .monaco-host .monaco-editor,
+  .monaco-host .monaco-editor .overflow-guard,
+  .monaco-host .monaco-editor-background,
+  .monaco-host .monaco-editor .margin {
+    background: transparent !important;
+  }
   .playground-bar {
     display: grid;
     grid-template-columns: 1fr auto;
@@ -848,42 +944,36 @@
   <section class="playground panel hover-peel" id="playground">
     <div class="playground-bar">
       <span>Compiled to WebAssembly. &nbsp; No install. &nbsp; Just Zap.</span>
-      <button class="reset-btn" id="resetBtn">Reset</button>
+      <button class="reset-btn" id="actionBtn">Try now</button>
     </div>
-    <div class="playground-grid">
-      <div class="playground-pane editor">
-        <div class="pane-head">hello.zap</div>
-        <div class="code-area">
-          <div class="gutter mono" id="gutter"></div>
-<pre class="code mono" id="codeBlock"><span class="cmt">// Welcome to Zap!</span>
-
-<span class="kw">pub fn</span> <span class="fn">main</span>() {
-    <span class="kw">const</span> port = <span class="num">4000</span>;
-    <span class="kw">var</span> server = Server.init(.{ port });
-
-    server.get(<span class="str">"/"</span>, <span class="kw">fn</span> (req, res) {
-        res.html(&lt;&gt;
-            &lt;h1&gt;Hello from Zap!&lt;/h1&gt;
-            &lt;p&gt;Fast. Ergonomic. Reliable.&lt;/p&gt;
-        &lt;/&gt;);
-    });
-
-    server.listen();
-}
-</pre>
+    <div class="playground-collapse" id="playgroundCollapse">
+      <div class="playground-collapse-inner">
+        <div class="loading-overlay" id="loadingOverlay">
+          <div class="loading-mark">
+            <svg><use href="#i-bolt"/></svg>
+            <span>ZAP</span>
+          </div>
+          <div class="loading-caption" id="loadingCaption">Fetching the Zap runtime…</div>
+          <div class="loading-bar" role="progressbar" aria-label="Loading Zap runtime"></div>
         </div>
-      </div>
-      <div class="playground-pane">
-        <div class="pane-head">Output ▾</div>
-        <div class="console-area">
-<span class="prompt">$ zap run hello.zap</span>
+        <div class="playground-grid">
+          <div class="playground-pane editor">
+            <div id="monacoEditor" class="monaco-host"></div>
+            <div id="vimStatus" class="vim-status mono"></div>
+          </div>
+          <div class="playground-pane">
+            <div class="pane-head">Output ▾</div>
+            <div class="console-area">
+<span class="prompt">$ zap run</span>
 <span class="out">Starting server on http://127.0.0.1:4000</span> <span class="check">✓</span>
 <span class="cursor"></span>
+            </div>
+          </div>
+        </div>
+        <div class="playground-foot">
+          <span class="check">✓</span> Compiled to WebAssembly
         </div>
       </div>
-    </div>
-    <div class="playground-foot">
-      <span class="check">✓</span> Compiled to WebAssembly
     </div>
   </section>
 
@@ -1023,27 +1113,222 @@ $ zap run</div>
 
 </div>
 
-<!-- Generate gutter line numbers + smooth-scroll nav -->
+<!-- Playground editor + smooth-scroll nav -->
 <script>
   (function () {
-    const code = document.getElementById('codeBlock');
-    const gutter = document.getElementById('gutter');
-    if (code && gutter) {
-      const lines = code.textContent.split('\n');
-      // Trim trailing blank line if present
-      if (lines[lines.length - 1] === '') lines.pop();
-      const n = Math.max(lines.length, 15);
-      let html = '';
-      for (let i = 1; i <= n; i++) html += '<span>' + i + '</span>';
-      gutter.innerHTML = html;
+    // Source: logo.txt — keep in sync if either is edited.
+    const ZAP_LOGO = [
+      '                      *######%*%*             @**##                 *****#####**     ',
+      '           *#**######*+::....-%##%      %#*##%*##:#           ###****++:....:.+#*+** ',
+      '     %######*+:.............=+*%#      ##:#+......#+*    %%%*++**:...............+*+#',
+      '  @%#*:.....................-##%      %%=..:......##*     +%%*.......-----:.......+=#',
+      '   +%##:.....:.....++......+*#%#     %%+..........#%#    %#%-.-=.....#%+++*%+.....*+#',
+      '  @%%+=.....-+**###+.....-#*%*       %#....:%*....=%#    %%#####.....#%...-%*....+###',
+      '    *%-:*#####**##-.....=*##       #%*.....%+#.....%##       *#*.....%*=#%*:....=%*  ',
+      '   @%%%*#*   -*#+.....-**#         %#:....%+-@....:#%#      ###.....#%#+:::...=%+*#  ',
+      '  @%        @#*+.....+*##         #%:....#%::%+....+%#      ##*......:.....-##*#%    ',
+      '           @+#:.....#*#      %%%%%#.....#%%%%+=....-%+-#    ##+:........=#+=#*       ',
+      '         %%+*:....+**=..     ##=..................:.-%%#    ##=....-+####%#          ',
+      '        @+*-....:*#*::--#%%%%%##*.............=-....*%#     ##.....#%*               ',
+      '      #%+#.....-###%###+:::#%##+-....-**######%+:...:%%    *#*.....#%                ',
+      '     ##++......=..........=+++-%:....###*%    #+.....#%%   ##+....-%#                ',
+      '    %#+-..................=##-#+....:##       #*....-+%%   ##:.:..+%@                ',
+      '   %*#+........... =+**###%#+#*...::*#        %*-#*#@%%#   #*-%+##*%                 ',
+      '  %##:.....:+*#*#****#*#    %*-#*##+##        %#%%# % %    %#%*%  %%                 ',
+      ' *+#+*%###**####*          %@%## % #%         %%           ##                        ',
+      '%%##+%%##*                                                                           '
+    ].join('\n');
+    // DevTools console background follows the OS / browser theme. matchMedia is the
+    // closest signal we have; pick ink for light consoles, paper for dark ones.
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const logoColor = prefersDark ? '#f5f1e8' : '#1a1a1a';
+    console.log('%c' + ZAP_LOGO, 'font-family: ui-monospace, "JetBrains Mono", monospace; font-size: 11px; line-height: 1.05; color: ' + logoColor + ';');
+
+    const MONACO_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs';
+    const initialCode = [
+      '// Welcome to Zap!',
+      '',
+      'pub fn main() {',
+      '    const port = 4000;',
+      '    var server = Server.init(.{ port });',
+      '',
+      '    server.get("/", fn (req, res) {',
+      '        res.html(<>',
+      '            <h1>Hello from Zap!</h1>',
+      '            <p>Fast. Ergonomic. Reliable.</p>',
+      '        </>);',
+      '    });',
+      '',
+      '    server.listen();',
+      '}',
+      ''
+    ].join('\n');
+
+    const MONACO_VIM_URL = 'https://cdn.jsdelivr.net/npm/monaco-vim@0.4.1/dist/monaco-vim.js';
+
+    let monacoLoading = null;
+    let editor = null;
+    let vimMode = null;
+
+    function loadMonaco() {
+      if (window.monaco) return Promise.resolve();
+      if (monacoLoading) return monacoLoading;
+      monacoLoading = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = MONACO_BASE + '/loader.min.js';
+        s.onload = () => {
+          window.require.config({ paths: { vs: MONACO_BASE } });
+          window.require(['vs/editor/editor.main'], () => resolve(), reject);
+        };
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+      return monacoLoading;
     }
-    document.getElementById('resetBtn')?.addEventListener('click', () => {
-      // playful pulse only, fake reset
-      const p = document.getElementById('playground');
-      p.style.transition = 'transform 220ms ease';
-      p.style.transform = 'rotate(-0.4deg) translateY(-2px)';
-      setTimeout(() => { p.style.transform = ''; }, 220);
+
+    function loadMonacoVim() {
+      return new Promise((resolve, reject) => {
+        window.require.config({ paths: { 'monaco-vim': MONACO_VIM_URL.replace(/\.js$/, '') } });
+        window.require(['monaco-vim'], (MonacoVim) => resolve(MonacoVim), reject);
+      });
+    }
+
+    function mountEditor() {
+      if (editor) return;
+      editor = window.monaco.editor.create(document.getElementById('monacoEditor'), {
+        value: initialCode,
+        language: 'rust',
+        theme: 'vs',
+        minimap: { enabled: false },
+        fontFamily: "'JetBrains Mono', 'Cousine', monospace",
+        fontSize: 13,
+        scrollBeyondLastLine: false,
+        automaticLayout: true,
+        renderLineHighlight: 'none',
+        overviewRulerLanes: 0,
+        scrollbar: { verticalScrollbarSize: 8, horizontalScrollbarSize: 8 }
+      });
+    }
+
+    function enableVim() {
+      if (vimMode) return Promise.resolve();
+      return loadMonacoVim().then((MonacoVim) => {
+        vimMode = MonacoVim.initVimMode(editor, document.getElementById('vimStatus'));
+      });
+    }
+
+    const actionBtn = document.getElementById('actionBtn');
+    const collapse = document.getElementById('playgroundCollapse');
+    const overlay = document.getElementById('loadingOverlay');
+    const caption = document.getElementById('loadingCaption');
+    const SIMULATED_WASM_DELAY_MS = 10000;
+    const CAPTION_INTERVAL_MS = 3000;
+
+    const LOADING_MESSAGES = [
+      'Charging the lightning…',
+      'Compiling the impossible…',
+      'Bottling the speed of light…',
+      'Sharpening the pencils…',
+      'Polishing the syntax…',
+      'Bending bytes into shape…',
+      'Untangling the futures…',
+      'Warming up the WASM…',
+      'Caffeinating the compiler…',
+      'Aligning the pointers…',
+      'Counting to infinity (twice)…',
+      'Reticulating splines…',
+      'Calibrating blue elephants…',
+      'Coalescing cloud formations…',
+      'Mitigating time-stream discontinuities…',
+      'Adjusting bell curves…',
+      'Charging ozone layer…',
+      'Routing neural network infanstructure…',
+      '“Cats and dogs, living together. Mass hysteria.”',
+      '“We’re gonna need a bigger boat.”',
+      '“I have a bad feeling about this.”',
+      '“There is no spoon.”',
+      '“Inconceivable!”',
+      '“I’ll be back.”',
+      '“Houston, we have a problem.”',
+      '“You can’t handle the truth!”',
+      '“Just keep swimming…”',
+      '“Roads? Where we’re going we don’t need roads.”',
+      '“These aren’t the bytes you’re looking for.”',
+      '“Why so serious?”',
+      '“Nobody puts Baby in the corner.”',
+      '“Say hello to my little friend.”',
+      '“Toto, I’ve a feeling we’re not in Kansas anymore.”'
+    ];
+
+    // Seeded PRNG (mulberry32) so the shuffle order is reproducible from the seed
+    // we hand it. We seed with Date.now() at rotator start, so each load gets a
+    // different deterministic ordering rather than independent random draws.
+    function mulberry32(seed) {
+      return function () {
+        let t = (seed = (seed + 0x6D2B79F5) | 0);
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    function shuffleSeeded(arr, seed) {
+      const rand = mulberry32(seed);
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(rand() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function startCaptionRotator() {
+      const order = shuffleSeeded(LOADING_MESSAGES, Date.now());
+      let idx = 0;
+      const tick = () => {
+        const next = order[idx % order.length];
+        idx++;
+        caption.classList.add('swap');
+        setTimeout(() => {
+          caption.textContent = next;
+          caption.classList.remove('swap');
+        }, 220);
+      };
+      const id = setInterval(tick, CAPTION_INTERVAL_MS);
+      // Replace the static seed quickly so the first message a user sees is randomized.
+      setTimeout(tick, 500);
+      return () => clearInterval(id);
+    }
+
+    actionBtn?.addEventListener('click', async () => {
+      if (actionBtn.dataset.state !== 'open') {
+        collapse.classList.add('open');
+        actionBtn.dataset.state = 'open';
+        actionBtn.disabled = true;
+
+        const stopRotator = startCaptionRotator();
+
+        const editorReady = (async () => {
+          await loadMonaco();
+          mountEditor();
+          await enableVim();
+        })().catch(err => console.error('Failed to load editor', err));
+
+        const minDelay = new Promise(r => setTimeout(r, SIMULATED_WASM_DELAY_MS));
+
+        await Promise.all([editorReady, minDelay]);
+
+        stopRotator();
+        overlay.classList.add('fade-out');
+        actionBtn.textContent = 'Run';
+        actionBtn.disabled = false;
+        editor?.focus();
+      } else {
+        // TODO: fetch zap wasm and execute editor.getValue()
+        // For now, the static output remains in place.
+      }
     });
+
     // smooth scroll
     document.querySelectorAll('a[href^="#"]').forEach(a => {
       a.addEventListener('click', e => {
@@ -1059,6 +1344,19 @@ $ zap run</div>
 </script>
 
 <!-- Tweaks -->
+<script>
+  // Stub React DevTools' global hook so the dev build skips its
+  // "Download the React DevTools…" console.info on load. The dev message fires
+  // when the hook is missing or reports !supportsFiber; providing a no-op hook
+  // with supportsFiber: true silences it without switching to a prod build.
+  window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
+    supportsFiber: true,
+    inject: function () {},
+    onCommitFiberRoot: function () {},
+    onCommitFiberUnmount: function () {},
+    checkDCE: function () {}
+  };
+</script>
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
